@@ -1,0 +1,4165 @@
+{
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Automatically generate standard W3C traceparent (ADR-010) and X-Trace-Id",
+          "function generateHex(len) {",
+          "    let result = '';",
+          "    const chars = '0123456789abcdef';",
+          "    for (let i = 0; i < len; i++) {",
+          "        result += chars.charAt(Math.floor(Math.random() * chars.length));",
+          "    }",
+          "    return result;",
+          "}",
+          "const traceId = generateHex(32);",
+          "const spanId = generateHex(16);",
+          "const traceparent = `00-${traceId}-${spanId}-01`;",
+          "pm.request.headers.upsert({ key: 'traceparent', value: traceparent });",
+          "pm.request.headers.upsert({ key: 'X-Trace-Id', value: traceId });",
+          "pm.environment.set('currentTraceId', traceId);"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "info": {
+    "_exporter_id": "39879181",
+    "_postman_id": "d6e8a0c2-5f7b-4d9e-8a3c-2f4b5c6d7e8f",
+    "description": "Enterprise-grade E2E Postman Suite for the IT Vendor Registry Service Domain (BIAN-aligned, ADR-001/005/013/019/030/031/032/033). Registers a vendor (a name and a category: no contact, no money), reads and lists it with filters, updates it, deactivates and activates it (an agreement with an inactive vendor is refused) and reads its audit ledger. Records agreements (contract, warranty, support plan, licence term) with a reference, the days it is in force, the notice and the optional asset, judged on the day they are read as NOT_STARTED, IN_FORCE, EXPIRING or EXPIRED, with the days to the end (nothing of the verdict is stored), lists them by standing, vendor, kind and asset, renews one by moving its last day, pauses and resumes one (a paused agreement is not judged) and reads its ledger. A second folder proves the service is staff only (a REQUESTER gets 403 ERR-VND-00403 on every route). A third covers the negative guarantees: validation (blank or long name, missing or unknown category, missing executor or tenant, an end before the start, a term over 3660 days, a notice out of range, a reference that is not an identifier, an unknown kind, a malformed date, missing fields), duplicate names and references (409), illegal transitions, tenant isolation, an unknown vendor, unknown filters and the absence of DELETE, with RFC 7807 error_code assertions. It files everything under its own generated tenant id (vndOrganisationId) and computes every date relative to today.",
+    "name": "IT Vendor Registry Service - Vendor Suite",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Health status is UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Health Check (Aggregated)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "raw": "{{base_url}}/health"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Liveness status is UP or UNKNOWN (no probe contributors registered)', () => pm.expect(['UP', 'UNKNOWN']).to.include(pm.response.json().status));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Liveness Probe",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "liveness"
+              ],
+              "raw": "{{base_url}}/health/liveness"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Readiness status is UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Readiness Probe",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "readiness"
+              ],
+              "raw": "{{base_url}}/health/readiness"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Contains JVM metrics', () => pm.expect(pm.response.text()).to.include('jvm_memory'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Prometheus Metrics",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "prometheus"
+              ],
+              "raw": "{{base_url}}/prometheus"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns Swagger UI HTML', () => pm.expect(pm.response.text()).to.include('swagger-ui'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Swagger UI",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "swagger-ui",
+                "index.html"
+              ],
+              "raw": "{{base_url}}/swagger-ui/index.html"
+            }
+          }
+        }
+      ],
+      "name": "00. Infrastructure & Telemetry"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.environment.set('vndOrganisationId', pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.environment.set('vndUserId', pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.environment.set('vndOtherTenantId', pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.environment.set('vndAssetId', pm.variables.replaceIn('{{$guid}}'));",
+                  "const today = new Date(); today.setUTCHours(0, 0, 0, 0);",
+                  "const inDays = (d) => new Date(today.getTime() + d * 24 * 3600 * 1000).toISOString().slice(0, 10);",
+                  "pm.environment.set('d_minus400', inDays(-400));",
+                  "pm.environment.set('d_minus10', inDays(-10));",
+                  "pm.environment.set('d_minus1', inDays(-1));",
+                  "pm.environment.set('d_plus10', inDays(10));",
+                  "pm.environment.set('d_plus20', inDays(20));",
+                  "pm.environment.set('d_plus100', inDays(100));",
+                  "pm.environment.set('d_plus365', inDays(365));",
+                  "pm.environment.set('d_plus400', inDays(400));",
+                  "pm.environment.set('d_plus5000', inDays(5000));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('ACTIVE, with its category and nothing else about a person', () => {",
+                  "    pm.expect(json.id).to.not.be.undefined;",
+                  "    pm.expect(json.status).to.eql('ACTIVE');",
+                  "    pm.expect(json.category).to.eql('HARDWARE');",
+                  "    pm.expect(json.name).to.eql('Dell');",
+                  "});",
+                  "pm.environment.set('vendorId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "01. Initiate a vendor (ACTIVE)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dell\",\n  \"category\": \"HARDWARE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('The vendor is the tenant\\'s own', () => {",
+                  "    pm.expect(json.id).to.eql(pm.environment.get('vendorId'));",
+                  "    pm.expect(json.organisationId).to.eql(pm.environment.get('vndOrganisationId'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "02. Retrieve the vendor by ID",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Only ours', () => { pm.expect(json).to.have.lengthOf(1); pm.expect(json[0].id).to.eql(pm.environment.get('vendorId')); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "03. List vendors filtered by status and category",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                },
+                {
+                  "key": "category",
+                  "value": "HARDWARE"
+                }
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/retrieve?status=ACTIVE&category=HARDWARE"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "04. Update the vendor: renamed and recategorised (204)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dell Technologies\",\n  \"category\": \"SERVICES\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Renamed and recategorised, still ACTIVE', () => {",
+                  "    pm.expect(json.name).to.eql('Dell Technologies');",
+                  "    pm.expect(json.category).to.eql('SERVICES');",
+                  "    pm.expect(json.status).to.eql('ACTIVE');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "05. The update is kept",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('cloudVendorId', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "06. Initiate a second vendor (a cloud)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Cloud\",\n  \"category\": \"CLOUD\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "07. Control: deactivate the cloud vendor (ACTIVE -> INACTIVE)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{cloudVendorId}}",
+                "control",
+                "deactivate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{cloudVendorId}}/control/deactivate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Only the cloud vendor', () => { pm.expect(json).to.have.lengthOf(1); pm.expect(json[0].id).to.eql(pm.environment.get('cloudVendorId')); pm.expect(json[0].status).to.eql('INACTIVE'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "08. List vendors by status (INACTIVE)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "INACTIVE"
+                }
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/retrieve?status=INACTIVE"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "09. An agreement with an inactive vendor is refused (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{cloudVendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"CLD-1\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "10. Control: activate the cloud vendor (INACTIVE -> ACTIVE)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{cloudVendorId}}",
+                "control",
+                "activate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{cloudVendorId}}/control/activate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('INITIATED, DEACTIVATED, ACTIVATED, each by an executor', () => {",
+                  "    pm.expect(json.map(e => e.action)).to.eql(['INITIATED', 'DEACTIVATED', 'ACTIVATED']);",
+                  "    json.forEach(e => pm.expect(e.executor).to.be.a('string').that.is.not.empty);",
+                  "    pm.expect(json[0].fromStatus == null).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "11. The vendor trail reads in order",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{cloudVendorId}}",
+                "audit-log",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{cloudVendorId}}/audit-log/retrieve"
+            }
+          }
+        }
+      ],
+      "name": "01. Vendor Lifecycle (BIAN Behavior Qualifiers)"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('ACTIVE, judged today: EXPIRING with about 20 days left, the asset kept', () => {",
+                  "    pm.expect(json.status).to.eql('ACTIVE');",
+                  "    pm.expect(json.standing).to.eql('EXPIRING');",
+                  "    pm.expect(json.daysToEnd).to.be.closeTo(20, 1);",
+                  "    pm.expect(json.assetId).to.eql(pm.environment.get('vndAssetId'));",
+                  "    pm.expect(json.reference).to.eql('WTY-2026/01');",
+                  "    pm.expect(json.autoRenew).to.be.false;",
+                  "});",
+                  "pm.environment.set('agreementId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "01. Initiate a warranty that ends in 20 days with 30 days of notice (EXPIRING)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"WARRANTY\",\n  \"reference\": \"WTY-2026/01\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus400}}\",\n  \"endsOn\": \"{{d_plus20}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('The agreement is the tenant\\'s own, for its vendor', () => {",
+                  "    pm.expect(json.id).to.eql(pm.environment.get('agreementId'));",
+                  "    pm.expect(json.vendorId).to.eql(pm.environment.get('vendorId'));",
+                  "    pm.expect(json.organisationId).to.eql(pm.environment.get('vndOrganisationId'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "02. Retrieve the agreement by ID",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Standing is IN_FORCE', () => pm.expect(json.standing).to.eql('IN_FORCE'));",
+                  "pm.test('No asset', () => pm.expect(json.assetId == null).to.be.true);",
+                  "pm.environment.set('contractId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "03. Initiate a contract in force for 400 days, no asset",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"CT-2026/02\",\n  \"assetId\": null,\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus400}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": true\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Standing is EXPIRED', () => pm.expect(json.standing).to.eql('EXPIRED'));",
+                  "pm.test('Negative days to the end', () => pm.expect(json.daysToEnd).to.be.closeTo(-10, 1));",
+                  "pm.environment.set('supportId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "04. Initiate a support plan that ended 10 days ago (EXPIRED)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"SUPPORT\",\n  \"reference\": \"SUP-1\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus400}}\",\n  \"endsOn\": \"{{d_minus10}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Standing is NOT_STARTED', () => pm.expect(json.standing).to.eql('NOT_STARTED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "05. Initiate a licence that starts in 10 days (NOT_STARTED)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{cloudVendorId}}\",\n  \"kind\": \"LICENSE\",\n  \"reference\": \"LIC-1\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_plus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Only the warranty', () => { pm.expect(json).to.have.lengthOf(1); pm.expect(json[0].id).to.eql(pm.environment.get('agreementId')); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "06. List agreements by standing EXPIRING",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "standing",
+                  "value": "EXPIRING"
+                }
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/retrieve?standing=EXPIRING"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Only the support plan', () => { pm.expect(json).to.have.lengthOf(1); pm.expect(json[0].id).to.eql(pm.environment.get('supportId')); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "07. List agreements by standing EXPIRED",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "standing",
+                  "value": "EXPIRED"
+                }
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/retrieve?standing=EXPIRED"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('The warranty only', () => { pm.expect(json).to.have.lengthOf(1); pm.expect(json[0].id).to.eql(pm.environment.get('agreementId')); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "08. List agreements by vendor, kind and asset",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "vendorId",
+                  "value": "{{vendorId}}"
+                },
+                {
+                  "key": "kind",
+                  "value": "WARRANTY"
+                },
+                {
+                  "key": "assetId",
+                  "value": "{{vndAssetId}}"
+                }
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/retrieve?vendorId={{vendorId}}&kind=WARRANTY&assetId={{vndAssetId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Four, in the order they were made', () => pm.expect(json.map(a => a.reference)).to.eql(['WTY-2026/01', 'CT-2026/02', 'SUP-1', 'LIC-1']));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "09. List all agreements: oldest first",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "10. The same reference for the same vendor is a conflict (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"WARRANTY\",\n  \"reference\": \"WTY-2026/01\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "11. The same reference for another vendor is fine (201)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{cloudVendorId}}\",\n  \"kind\": \"WARRANTY\",\n  \"reference\": \"WTY-2026/01\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "12. Renew the support plan: a new last day, a new kind (204)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"CONTRACT\",\n  \"assetId\": null,\n  \"startsOn\": \"{{d_minus400}}\",\n  \"endsOn\": \"{{d_plus365}}\",\n  \"noticeDays\": 60,\n  \"autoRenew\": true\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{supportId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{supportId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Standing is IN_FORCE', () => pm.expect(json.standing).to.eql('IN_FORCE'));",
+                  "pm.test('Kept, the reference unchanged', () => { pm.expect(json.kind).to.eql('CONTRACT'); pm.expect(json.noticeDays).to.eql(60); pm.expect(json.autoRenew).to.be.true; pm.expect(json.reference).to.eql('SUP-1'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "13. The renewal is kept and the agreement is in force again",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{supportId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{supportId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "14. Control: pause the warranty (ACTIVE -> PAUSED)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "control",
+                "pause"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/control/pause"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Standing is PAUSED', () => pm.expect(json.standing).to.eql('PAUSED'));",
+                  "pm.test('No days to the end', () => { pm.expect(json.status).to.eql('PAUSED'); pm.expect(json.daysToEnd == null).to.be.true; });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "15. A paused agreement is not judged",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "16. Control: resume the warranty (PAUSED -> ACTIVE)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "control",
+                "resume"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/control/resume"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('INITIATED, PAUSED, RESUMED, each by an executor', () => {",
+                  "    pm.expect(json.map(e => e.action)).to.eql(['INITIATED', 'PAUSED', 'RESUMED']);",
+                  "    json.forEach(e => pm.expect(e.executor).to.be.a('string').that.is.not.empty);",
+                  "    pm.expect(json[0].fromStatus == null).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "17. Read the audit ledger in order",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "audit-log",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/audit-log/retrieve"
+            }
+          }
+        }
+      ],
+      "name": "02. Agreement Lifecycle (judged when read)"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "01. A REQUESTER cannot create a vendor (403)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Requester attempt\",\n  \"category\": \"HARDWARE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "02. A REQUESTER cannot read a vendor (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "03. A REQUESTER cannot list vendors (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "04. A REQUESTER cannot update a vendor (403)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Requester attempt\",\n  \"category\": \"HARDWARE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "05. A REQUESTER cannot deactivate a vendor (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "control",
+                "deactivate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/control/deactivate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "06. A REQUESTER cannot read a vendor trail (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "audit-log",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/audit-log/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "07. A REQUESTER cannot create an agreement (403)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"REQ-1\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "08. A REQUESTER cannot read an agreement (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "09. A REQUESTER cannot list agreements (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "10. A REQUESTER cannot update an agreement (403)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"CONTRACT\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "11. A REQUESTER cannot pause an agreement (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "control",
+                "pause"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/control/pause"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "12. A REQUESTER cannot read an agreement trail (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{vndUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "audit-log",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/audit-log/retrieve"
+            }
+          }
+        }
+      ],
+      "name": "03. Staff Only (REQUESTER refused)"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "01. Initiate a vendor - Blank name (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \" \",\n  \"category\": \"HARDWARE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "02. Initiate a vendor - Name over 80 characters (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n  \"category\": \"HARDWARE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "03. Initiate a vendor - Missing category (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"No category\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "04. Initiate a vendor - Unknown category (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bogus\",\n  \"category\": \"PRINTERS\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "05. Initiate a vendor - Missing X-Executor (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"No executor\",\n  \"category\": \"HARDWARE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "06. Initiate a vendor - Missing X-Tenant-Id (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"No tenant\",\n  \"category\": \"HARDWARE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "07. Initiate a vendor - A name already used in the organisation (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Cloud\",\n  \"category\": \"CLOUD\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "08. Update a vendor - Onto a name already used (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Cloud\",\n  \"category\": \"CLOUD\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "09. Deactivate - An inactive vendor cannot be deactivated again (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{cloudVendorId}}",
+                "control",
+                "deactivate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{cloudVendorId}}/control/deactivate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "10. Deactivate - Again (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{cloudVendorId}}",
+                "control",
+                "deactivate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{cloudVendorId}}/control/deactivate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "11. Activate - Back to ACTIVE (204)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{cloudVendorId}}",
+                "control",
+                "activate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{cloudVendorId}}/control/activate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "12. Activate - An active vendor cannot be activated (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{cloudVendorId}}",
+                "control",
+                "activate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{cloudVendorId}}/control/activate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "13. Retrieve - Non-existent vendor (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "00000000-0000-0000-0000-000000000000",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/00000000-0000-0000-0000-000000000000/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "14. Retrieve - Malformed UUID path (400)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "not-a-uuid",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/not-a-uuid/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "15. Retrieve - Another tenant answers like a missing one (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOtherTenantId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "16. Deactivate - Another tenant (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOtherTenantId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}",
+                "control",
+                "deactivate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}/control/deactivate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "17. List vendors - Unknown category (400)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "BOGUS"
+                }
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/retrieve?category=BOGUS"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Nothing of ours', () => pm.expect(pm.response.json()).to.have.lengthOf(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "18. List vendors - Another tenant sees none",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOtherTenantId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Not allowed', () => pm.expect([404, 405]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "19. Delete - There is no DELETE (404 or 405)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "DELETE",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "{{vendorId}}"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/{{vendorId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "20. Initiate an agreement - The end before the start (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-1\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_plus100}}\",\n  \"endsOn\": \"{{d_plus10}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "21. Initiate an agreement - A term over 3660 days (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-2\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus400}}\",\n  \"endsOn\": \"{{d_plus5000}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "22. Initiate an agreement - A negative notice (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-3\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": -1,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "23. Initiate an agreement - A notice over 365 days (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-4\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 366,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "24. Initiate an agreement - A reference with spaces (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"not an id\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "25. Initiate an agreement - A reference over 40 characters (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "26. Initiate an agreement - A blank reference (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "27. Initiate an agreement - An unknown kind (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"PURCHASE\",\n  \"reference\": \"BAD-5\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "28. Initiate an agreement - A malformed date (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-6\",\n  \"startsOn\": \"31/12/2026\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "29. Initiate an agreement - Missing the vendor (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-7\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "30. Initiate an agreement - Missing the last day (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-8\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "31. Initiate an agreement - Missing the notice (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-9\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.environment.set('otherVendorId', pm.variables.replaceIn('{{$guid}}'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "32. Initiate an agreement - A vendor that is not the tenant's (404)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{otherVendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-10\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "33. Initiate an agreement - Missing X-Executor (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"kind\": \"CONTRACT\",\n  \"reference\": \"BAD-11\",\n  \"assetId\": \"{{vndAssetId}}\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "34. Update an agreement - The end before the start (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"CONTRACT\",\n  \"startsOn\": \"{{d_plus100}}\",\n  \"endsOn\": \"{{d_plus10}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "35. Resume - An active agreement cannot be resumed (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "control",
+                "resume"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/control/resume"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "36. Pause - Twice (409 the second time)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{contractId}}",
+                "control",
+                "pause"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{contractId}}/control/pause"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "37. Pause - Again (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{contractId}}",
+                "control",
+                "pause"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{contractId}}/control/pause"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "38. Retrieve an agreement - Non-existent (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "00000000-0000-0000-0000-000000000000",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/00000000-0000-0000-0000-000000000000/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "39. Retrieve an agreement - Malformed UUID path (400)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "not-a-uuid",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/not-a-uuid/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "40. Retrieve an agreement - Another tenant answers like a missing one (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOtherTenantId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "41. Update an agreement - Another tenant (404)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"CONTRACT\",\n  \"startsOn\": \"{{d_minus10}}\",\n  \"endsOn\": \"{{d_plus100}}\",\n  \"noticeDays\": 30,\n  \"autoRenew\": false\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOtherTenantId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-VND-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-VND-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "42. Audit trail of an agreement - Another tenant (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOtherTenantId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}",
+                "audit-log",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}/audit-log/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "43. List agreements - Unknown standing (400)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "standing",
+                  "value": "BOGUS"
+                }
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/retrieve?standing=BOGUS"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "44. List agreements - Unknown kind (400)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "kind",
+                  "value": "BOGUS"
+                }
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/retrieve?kind=BOGUS"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Nothing of ours', () => pm.expect(pm.response.json()).to.have.lengthOf(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "45. List agreements - Another tenant sees none",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOtherTenantId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Not allowed', () => pm.expect([404, 405]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "46. Agreements cannot be deleted: no DELETE (404 or 405)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{vndOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "DELETE",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-vendor-registry",
+                "v1",
+                "agreement",
+                "{{agreementId}}"
+              ],
+              "raw": "{{base_url}}/it-vendor-registry/v1/agreement/{{agreementId}}"
+            }
+          }
+        }
+      ],
+      "name": "04. Negative Tests & Guarantees"
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8108"
+    }
+  ]
+}
