@@ -196,6 +196,19 @@ public class Agreement {
     public UUID getId() { return id; }
     public UUID getOrganisationId() { return organisationId; }
     public UUID getVendorId() { return vendorId; }
+    /**
+     * Whether the agreement's promise is being kept on {@code today} (platform ADR-001): broken when it is about to end ({@code AGREEMENT_EXPIRING}) or has ended
+     * ({@code AGREEMENT_EXPIRED}) (somebody must renew or replace it), kept while in force, not judged before it starts or when paused.
+     */
+    public Promise promise(LocalDate today) {
+        return switch (assess(today).standing()) {
+            case EXPIRED -> Promise.broken("AGREEMENT_EXPIRED");
+            case EXPIRING -> Promise.broken("AGREEMENT_EXPIRING");
+            case IN_FORCE -> Promise.kept();
+            case NOT_STARTED, PAUSED -> Promise.notJudged();
+        };
+    }
+
     public String getReference() { return reference; }
     public Kind getKind() { return kind; }
     public UUID getAssetId() { return assetId; }

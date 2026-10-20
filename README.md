@@ -31,6 +31,7 @@ the verified token.
 |---|---|
 | initiate | `POST /it-vendor-registry/v1/initiate` `{"name":"Dell","category":"HARDWARE"}` |
 | retrieve | `GET /it-vendor-registry/v1/{id}/retrieve` |
+| promises/retrieve | `GET /it-vendor-registry/v1/promises/retrieve?changedWithinDays=&limit=` (the promises contract, ADR-034: every broken promise and every one that changed lately, each with `verdict`, a fixed `code` when broken, `status` and `changedAt`) |
 | retrieve (collection) | `GET /it-vendor-registry/v1/retrieve?status=&category=` (oldest first) |
 | update | `PUT /it-vendor-registry/v1/{id}/update` (the whole definition again, in any status) |
 | control/deactivate | `PUT /it-vendor-registry/v1/{id}/control/deactivate` (ACTIVE -> INACTIVE: no new agreement) |
@@ -75,7 +76,7 @@ Do not put personal data in a vendor name: it is stored with the vendor.
 ## Architecture decisions
 
 001 hexagonal architecture · 005 UUID identity sovereignty and audit tracing · 013 BIAN conventions · 019 HTTP 409 for state conflicts ·
-030 vendors and agreements, with no people and no money · 031 an agreement is judged when read · 032 staff only · 033 guarded writes and unique backstops.
+030 vendors and agreements, with no people and no money · 031 an agreement is judged when read · 032 staff only · 033 guarded writes and unique backstops · 034 the promises contract.
 
 ## License
 
