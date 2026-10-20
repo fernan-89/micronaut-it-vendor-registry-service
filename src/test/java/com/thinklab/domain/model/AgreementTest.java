@@ -178,4 +178,21 @@ class AgreementTest {
         rejects(() -> Agreement.reconstitute(id, org, vendor, "REF", Kind.LICENSE, null, START, null, 0, false, null, null, null, null));
         assertThrows(UnsupportedOperationException.class, () -> full.getAuditTrail().clear());
     }
+
+    @Test
+    @DisplayName("the promise is broken when about to end (AGREEMENT_EXPIRING) or ended (AGREEMENT_EXPIRED), kept in force, and not judged before it starts or when paused (platform ADR-001)")
+    void promise() {
+        LocalDate start = LocalDate.parse("2026-01-01");
+        LocalDate end = LocalDate.parse("2026-12-31");
+        Agreement agreement = ending(start, end, 30);
+
+        assertEquals(Promise.kept(), agreement.promise(LocalDate.parse("2026-06-01")));
+        assertEquals(Promise.broken("AGREEMENT_EXPIRING"), agreement.promise(LocalDate.parse("2026-12-15")));
+        assertEquals(Promise.broken("AGREEMENT_EXPIRED"), agreement.promise(LocalDate.parse("2027-01-02")));
+        assertEquals(Promise.notJudged(), agreement.promise(LocalDate.parse("2025-12-01")));
+        agreement.pause("op");
+        assertEquals(Promise.notJudged(), agreement.promise(LocalDate.parse("2026-06-01")));
+        assertEquals(Promise.Verdict.BROKEN, Promise.broken("X").verdict());
+        assertEquals("X", Promise.broken("X").code());
+    }
 }

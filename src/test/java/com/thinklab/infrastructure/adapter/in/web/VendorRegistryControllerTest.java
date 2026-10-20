@@ -14,6 +14,8 @@ import com.thinklab.application.usecase.InitiateVendorUseCase;
 import com.thinklab.application.usecase.RetrieveAgreementAuditLogUseCase;
 import com.thinklab.application.usecase.RetrieveAgreementUseCase;
 import com.thinklab.application.usecase.RetrieveAgreementsUseCase;
+import com.thinklab.application.usecase.RetrievePromisesUseCase;
+import com.thinklab.application.dto.response.PromiseResponse;
 import com.thinklab.application.usecase.RetrieveVendorAuditLogUseCase;
 import com.thinklab.application.usecase.RetrieveVendorUseCase;
 import com.thinklab.application.usecase.RetrieveVendorsUseCase;
@@ -65,10 +67,11 @@ class VendorRegistryControllerTest {
     @Mock private UpdateAgreementUseCase updateAgreement;
     @Mock private ControlAgreementUseCase controlAgreement;
     @Mock private RetrieveAgreementAuditLogUseCase agreementAuditLog;
+    @Mock private RetrievePromisesUseCase retrievePromises;
 
     private VendorRegistryController controller() {
         return new VendorRegistryController(initiateVendor, retrieveVendor, retrieveVendors, updateVendor, controlVendor, vendorAuditLog, initiateAgreement, retrieveAgreement,
-                retrieveAgreements, updateAgreement, controlAgreement, agreementAuditLog);
+                retrieveAgreements, updateAgreement, controlAgreement, agreementAuditLog, retrievePromises);
     }
 
     private VendorResponse vendorResponse() {
@@ -156,5 +159,13 @@ class VendorRegistryControllerTest {
         StepVerifier.create(controller().updateAgreement(id, tenantHeader, EXECUTOR, ROLE, request)).assertNext(response -> assertEquals(HttpStatus.NO_CONTENT, response.getStatus())).verifyComplete();
         StepVerifier.create(controller().pauseAgreement(id, tenantHeader, EXECUTOR, ROLE)).assertNext(response -> assertEquals(HttpStatus.NO_CONTENT, response.getStatus())).verifyComplete();
         StepVerifier.create(controller().resumeAgreement(id, tenantHeader, EXECUTOR, ROLE)).assertNext(response -> assertEquals(HttpStatus.NO_CONTENT, response.getStatus())).verifyComplete();
+    }
+
+    @Test
+    @DisplayName("the promises route passes the tenant, the role and the two parameters (platform ADR-001)")
+    void promises() {
+        when(retrievePromises.execute(tenant, 7, 50, ROLE)).thenReturn(Mono.just(List.of(new PromiseResponse(UUID.randomUUID(), "CT-1", null, "KEPT", null, "ACTIVE", Instant.parse("2026-10-20T12:00:00Z")))));
+
+        StepVerifier.create(controller().promises(tenantHeader, ROLE, 7, 50)).assertNext(promises -> assertEquals(1, promises.size())).verifyComplete();
     }
 }

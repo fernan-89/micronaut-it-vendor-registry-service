@@ -4,9 +4,11 @@ import com.thinklab.application.dto.request.InitiateAgreementRequest;
 import com.thinklab.application.dto.request.InitiateVendorRequest;
 import com.thinklab.application.dto.request.UpdateAgreementRequest;
 import com.thinklab.application.dto.request.UpdateVendorRequest;
+import com.thinklab.application.dto.response.PromiseResponse;
 import com.thinklab.application.dto.response.AgreementResponse;
 import com.thinklab.application.dto.response.AuditEntryResponse;
 import com.thinklab.application.dto.response.VendorResponse;
+import com.thinklab.application.usecase.RetrievePromisesUseCase;
 import com.thinklab.application.usecase.ControlAgreementUseCase;
 import com.thinklab.application.usecase.ControlVendorUseCase;
 import com.thinklab.application.usecase.InitiateAgreementUseCase;
@@ -74,10 +76,14 @@ public class VendorRegistryController {
     private final ControlAgreementUseCase controlAgreement;
     private final RetrieveAgreementAuditLogUseCase agreementAuditLog;
 
+    private final RetrievePromisesUseCase retrievePromises;
+
     public VendorRegistryController(InitiateVendorUseCase initiateVendor, RetrieveVendorUseCase retrieveVendor, RetrieveVendorsUseCase retrieveVendors,
                                     UpdateVendorUseCase updateVendor, ControlVendorUseCase controlVendor, RetrieveVendorAuditLogUseCase vendorAuditLog,
                                     InitiateAgreementUseCase initiateAgreement, RetrieveAgreementUseCase retrieveAgreement, RetrieveAgreementsUseCase retrieveAgreements,
-                                    UpdateAgreementUseCase updateAgreement, ControlAgreementUseCase controlAgreement, RetrieveAgreementAuditLogUseCase agreementAuditLog) {
+                                    UpdateAgreementUseCase updateAgreement, ControlAgreementUseCase controlAgreement, RetrieveAgreementAuditLogUseCase agreementAuditLog,
+            RetrievePromisesUseCase retrievePromises) {
+        this.retrievePromises = retrievePromises;
         this.initiateVendor = initiateVendor;
         this.retrieveVendor = retrieveVendor;
         this.retrieveVendors = retrieveVendors;
@@ -115,6 +121,16 @@ public class VendorRegistryController {
     public Mono<List<VendorResponse>> retrieveAll(@Header(TENANT_HEADER) @NotBlank String tenantId, @Header(ROLE_HEADER) @Nullable String role,
                                                   @QueryValue @Nullable VendorStatus status, @QueryValue @Nullable Category category) {
         return Mono.defer(() -> retrieveVendors.execute(UUID.fromString(tenantId), status, category, role).collectList());
+    }
+
+    /**
+     * Behavior Qualifier: {@code promises/retrieve} (platform ADR-001, the promises contract). Every broken promise and every one that changed within the days asked
+     * (30 unless asked, 1 to 365), at most {@code limit} of each (500 unless asked, at most 1000).
+     */
+    @Get("/promises/retrieve")
+    public Mono<List<PromiseResponse>> promises(@Header(TENANT_HEADER) @NotBlank String tenantId, @Header(ROLE_HEADER) @Nullable String role,
+                                                @QueryValue @Nullable Integer changedWithinDays, @QueryValue @Nullable Integer limit) {
+        return Mono.defer(() -> retrievePromises.execute(UUID.fromString(tenantId), changedWithinDays, limit, role));
     }
 
     /** Behavior Qualifier: {@code update}. The whole definition again. */
